@@ -1,9 +1,0 @@
--js owl.js
--main owl.server.Main
--cp src
--lib hxnodejs
--lib hxnodejs-ws
--lib om.core
--D owl_server
--dce full
--debug
