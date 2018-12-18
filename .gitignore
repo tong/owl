@@ -1,0 +1,5 @@
+app/
+bin/
+example/*.js*
+owl.js*
+package-lock.json
