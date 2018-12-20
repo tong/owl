@@ -2,35 +2,33 @@ package owl;
 
 import om.Json;
 
-@:enum abstract SignalType(Int) {
+@:enum abstract Type(Int) {
+
 	var join = 0;
-	var enter = 1;
-	var offer = 2;
-	var answer = 3;
-	var candidate = 4;
+	var leave = 1;
+
+	var enter = 2;
+
+	var offer = 100;
+	var answer = 101;
+	var candidate = 102;
+
+	var error = 1000;
 }
-/*
-private typedef Signal = {
-	//mesh : String,
-	//node : String,
-	type : SignalType,
-	?data : Dynamic
-}
-*/
 
 class Signal {
 
-	public var type : SignalType;
+	public var type : Type;
 	public var data : Dynamic;
 
-	public function new( type : SignalType, ?data : Dynamic ) {
+	public function new( type : Type, ?data : Dynamic ) {
 		this.type = type;
 		this.data = data;
 	}
 
 	public function toJson() : Dynamic {
-		var o : Dynamic = { type : type };
-		if( data != null ) o.data = data;
+		var o : Dynamic = { t : type };
+		if( data != null ) o.d = data;
 		return o;
 	}
 
@@ -39,7 +37,7 @@ class Signal {
 	}
 
 	public static inline function fromJson( o : Dynamic ) : Signal {
-		return new Signal( o.type, o.data );
+		return new Signal( o.t, o.d );
 	}
 
 	public static inline function fromString( s : String ) : Signal {

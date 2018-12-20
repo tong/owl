@@ -15,9 +15,9 @@ class Node {
 	@:allow(owl.client.Mesh) dynamic function onCandidate( e : IceCandidate ) {}
 	@:allow(owl.client.Mesh) dynamic function onConnect() {}
 	@:allow(owl.client.Mesh) dynamic function onDisconnect() {}
-	@:allow(owl.client.Mesh) dynamic function onData( data : Dynamic ) {}
+	@:allow(owl.client.Mesh) dynamic function onData( d : Dynamic ) {}
 
-	public dynamic function onChannel( channel : DataChannel ) {}
+	public dynamic function onChannel( c : DataChannel ) {}
 
 	public var id(default,null) : String;
 	public var connected(default,null) = false;
@@ -33,8 +33,9 @@ class Node {
 				onCandidate( e.candidate );
 		}
 		connection.oniceconnectionstatechange = function(e){
-			if( connection.iceConnectionState == DISCONNECTED )
+			if( connection.iceConnectionState == DISCONNECTED ) {
 				onDisconnect();
+			}
 		}
 	}
 

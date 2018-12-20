@@ -31,8 +31,14 @@ class Node {
 		//send( { type: 'connect', id : id } );
 	}
 
-	public function send( s : Signal ) {
+	public function sendSignal( s : Signal ) {
 		socket.send( s.toString(), function(e){
+			if( e != null ) trace(e);
+		} );
+	}
+
+	public function signal( type : Signal.Type, ?data : Dynamic ) {
+		socket.send( new Signal( type, data ).toString(), function(e){
 			if( e != null ) trace(e);
 		} );
 	}

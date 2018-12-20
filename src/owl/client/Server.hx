@@ -9,8 +9,11 @@ import js.html.MessageEvent;
 import js.html.WebSocket;
 import om.FetchTools.*;
 import om.Json;
+import om.Nil;
 
 class Server {
+
+	public dynamic function onDisconnect() {}
 
 	public var host(default,null) : String;
     public var port(default,null) : Int;
@@ -25,37 +28,45 @@ class Server {
 		meshes = [];
     }
 
-	public function lobby() : Promise<Array<String>> {
+	public inline function lobby() : Promise<Array<String>> {
 		return request( 'lobby' );
 	}
 
-	public function connect( callback : ?Error->Void, protocol = 'owl' ) {
-		var url = 'ws://$host:$port';
-		//socket = new WebSocket( url, protocol );
-		socket = new WebSocket( url );
-		socket.onopen = function() {
-			//connected = true;
-			callback();
-			socket.onclose = function(e:CloseEvent) {
-				trace("onclose "+e);
-				//trace(om.net.WebSocket.ErrorCode.getMeaning( e.code ) );
-				//connected = false;
-				//callback( new Error( om.net.WebSocket.ErrorCode.getMeaning( e.code ) ) );
+	public function connect( protocol = 'owl' ) : Promise<Nil> {
+		return new Promise( function(resolve,reject){
+			var url = 'ws://$host:$port';
+			//socket = new WebSocket( url, protocol );
+			socket = new WebSocket( url );
+			socket.onopen = function() {
+				//connected = true;
+				socket.onclose = function(e:CloseEvent) {
+					trace("onclose "+e);
+					onDisconnect();
+					//trace(om.net.WebSocket.ErrorCode.getMeaning( e.code ) );
+					//connected = false;
+					//callback( new Error( om.net.WebSocket.ErrorCode.getMeaning( e.code ) ) );
+				}
+				socket.onmessage = function(e:MessageEvent) {
+					var sig = Signal.fromString( e.data );
+					trace("SIGNAL "+sig.type);
+					if( sig.type == error ) {
+						trace("TODO ON ERROR "+sig);
+					} else {
+						var m = meshes.get( sig.data.mesh );
+						m.handleSignal( sig );
+					}
+				}
+				resolve( nil );
 			}
-			socket.onmessage = function(e:MessageEvent) {
-				var signal = Signal.fromString( e.data );
-				trace("SIGNAL "+signal.type);
-				var mesh = meshes.get( signal.data.mesh );
-				mesh.handleSignal( signal );
-			}
-		}
+		});
 	}
 
 	public function join( id : String ) : Mesh {
-		var mesh = new Mesh( this, id );
-		meshes.set( id, mesh );
-		mesh.join();
-		return mesh;
+		var m = new Mesh( this, id );
+		meshes.set( id, m );
+		//m.join();
+		signal( Signal.Type.join, { mesh : id } );
+		return m;
 	}
 
 	/*
@@ -82,7 +93,12 @@ class Server {
 	}
 
 	@:allow(owl.client.Mesh)
-	inline function signal( s : Signal ) {
+	inline function signal( type : Signal.Type, ?data : Dynamic ) {
+		sendSignal( new Signal( type, data ) );
+	}
+
+	@:allow(owl.client.Mesh)
+	inline function sendSignal( s : Signal ) {
 		socket.send( s.toString() );
 	}
 

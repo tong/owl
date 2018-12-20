@@ -9,146 +9,106 @@ import js.html.rtc.IceCandidate;
 class Mesh {
 
 	public dynamic function onJoin() {}
-	public dynamic function onConnect( n : Node ) {}
-	public dynamic function onDisconnect( n : Node ) {}
-	public dynamic function onData( n : Node, data : Dynamic ) {}
+	public dynamic function onLeave() {}
+
+	public dynamic function onNodeConnect( n : Node ) {}
+	public dynamic function onNodeDisconnect( n : Node ) {}
+	public dynamic function onNodeData( n : Node, d : Dynamic ) {}
 
 	public var id(default,null) : String;
+	public var numNodes(default,null) = 0;
 
 	var server : Server;
-	var nodes : Map<String,Node>;
+	var nodes = new Map<String,Node>();
 
-	public function new( server : Server, id : String ) {
+	@:allow(owl.client.Server)
+	function new( server : Server, id : String ) {
 		this.server = server;
 		this.id = id;
 	}
 
+	/*
 	public function join() {
-		nodes = [];
-		//server.signal( { type : 'join', mesh : id } );
-		server.signal( new Signal( Signal.SignalType.join, { mesh : id } ) );
+		server.signal( Signal.Type.join, { mesh : id } );
+	}
+	*/
+
+	public function leave() {
+		server.signal( Signal.Type.leave, { mesh : id } );
 	}
 
-	public function send( str : String ) {
+	public function broadcast( str : String ) {
 		for( n in nodes ) {
-			n.send(str);
+			n.send( str );
 		}
 	}
 
-	public function handleSignal( signal : Signal ) {
-		switch signal.type {
+	@:allow(owl.client.Server)
+	function handleSignal( sig : Signal ) {
+		switch sig.type {
 		case join:
-			/*
-			if( signal.data.nodes.length == 0 ) {
-				onJoin();
-			} else {
-				var ids : Array<String> = signal.data.nodes;
+			if( sig.data.nodes.length > 0 ) {
+				var ids : Array<String> = sig.data.nodes;
 				for( id in ids ) {
-					var node = addNode( id );
-					node.connectTo().then( function(sdp){
-						server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
+					var n = addNode( createNode( id ) );
+					n.connectTo().then( function(sdp){
+						server.signal( offer, { mesh : this.id, node: n.id, sdp: sdp } );
 					});
 				}
 			}
-			*/
-			var ids : Array<String> = signal.data.nodes;
-			for( id in ids ) {
-				var node = addNode( id );
-				node.connectTo().then( function(sdp){
-					//server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
-					server.signal( new Signal( offer,  { mesh : this.id, node: node.id, sdp: sdp } ) );
-				});
-			}
 			onJoin();
+		case leave:
+			onLeave();
 		case enter:
-			var node = addNode( signal.data.node );
+			var n = addNode( createNode( sig.data.node ) );
 		case offer:
-			var node = nodes.get( signal.data.node );
-			node.connectFrom( new SessionDescription( signal.data.sdp ) ).then( function(sdp){
-				//server.signal( { type: 'answer', data: { mesh : id, node: node.id, sdp: sdp } } );
-				server.signal( new Signal( answer, { mesh : id, node: node.id, sdp: sdp } ) );
+			var n = nodes.get( sig.data.node );
+			n.connectFrom( new SessionDescription( sig.data.sdp ) ).then( function(sdp){
+				server.signal( answer, { mesh : id, node: n.id, sdp: sdp } );
 			});
 		case answer:
-			var node = nodes.get( signal.data.node );
-			node.setRemoteDescription( new SessionDescription( signal.data.sdp ) ).then( function(_){
+			var n = nodes.get( sig.data.node );
+			n.setRemoteDescription( new SessionDescription( sig.data.sdp ) ).then( function(_){
 				//trace('oi');
 				//node.send("fucvk");
 			});
 		case candidate:
-			var node = nodes.get( signal.data.node );
-			node.addIceCandidate( new IceCandidate( signal.data.candidate ) ).then( function(_){
+			var n = nodes.get( sig.data.node );
+			n.addIceCandidate( new IceCandidate( sig.data.candidate ) ).then( function(_){
 				//trace("OKOPKPKL");
 			});
 		default:
-			trace('unhandled signal '+signal);
+			trace('unhandled signal '+sig);
 		}
 	}
 
-	function addNode( id : String ) : Node {
-		var node = new Node( id );
-		nodes.set( id, node );
-		node.onCandidate = function(c){
-			//server.signal( { type: 'candidate', data: { mesh : this.id, node: node.id, candidate: c } } );
-			server.signal( new Signal( candidate, { mesh : this.id, node: node.id, candidate: c } ) );
+	function addNode( n : Node ) : Node {
+		nodes.set( n.id, n );
+		numNodes++;
+		n.onCandidate = function(c){
+			server.signal( candidate, { mesh : this.id, node: n.id, candidate: c } );
 		}
-		node.onConnect = function(){
-			onConnect( node );
+		n.onConnect = function(){
+			onNodeConnect( n );
 		}
-		node.onData = function(data){
-			onData( node, data );
+		n.onData = function(d){
+			onNodeData( n, d );
 		}
-		node.onDisconnect = function(){
-			onDisconnect( node );
+		n.onDisconnect = function(){
+			//TODO
+			trace("onDisconnect");
+			nodes.remove( n.id );
+			numNodes--;
+			onNodeDisconnect( n );
 		}
-		return node;
+		return n;
 	}
 
-	/*
-	@:allow(owl.client.Server)
-	function init( nodeList : Array<Dynamic> ) : Promise<Mesh> {
-		trace("INIT "+nodeList.length);
-		if( nodeList.length == 0 )
-			return Promise.resolve( this );
-
-		var proms = new Array<Promise<Dynamic>>();
-		for( id in nodeList ) {
-			var node = new Node( id );
-			nodes.set( id, node );
-			node.onConnect = function() {
-				trace("NODEM CONNECZED");
-			}
-			node.onCandidate = function(c){
-				//trace("XCXxxxxxxxxxxxxxxxxxxxxxxccccccccccccccccccc");
-				server.signal( { type: 'candidate', data: { mesh : this.id, node: node.id, candidate: c } } );
-			}
-			proms.push( node.connectTo().then( function(sdp){
-				//trace("XXXXXXXXXXXXXXXXXXX "+node.id);
-				server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
-			}) );
-			/*
-			node.connectTo().then( function(sdp){
-				//trace("XXXXXXXXXXXXXXXXXXX "+node.id);
-				server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
-			});
-		}
-		/*
-		return Promise.all( proms ).then( function(a){
-			trace(a);
-			return this;
-		});
-		//return Promise.reject();
-		return Promise.add([for(n in nodes)
-			n.connectTo().then( function(sdp){
-				//trace("XXXXXXXXXXXXXXXXXXX "+node.id);
-				server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
-			});
-		return Promise.all( [for(n in nodes) n.connectTo()] ).then( function(e){
-			trace(">>>>>>>>>>>>>>>>>>",e);
-			server.signal( { type: 'offer', data: { node: node.id, sdp: sdp } } );
-			return Promise.reject();
-		});
+	function createNode( id : String ) : Node {
+		return new Node( id );
 	}
-	*/
+
+	//function signal( type : Signal.Type, ?data : Dynamic ) : Node {
 
 	/*
 	@:allow(owl.client.Server)
