@@ -30,11 +30,13 @@ class Node {
 		});
 	}
 
-	public function signal( type : Signal.Type, ?data : Dynamic ) {
+	@:allow(owl.server.Server)
+	inline function signal( type : Signal.Type, ?data : Dynamic ) {
 		sendSignal( new Signal( type, data ) );
 	}
 
-	public function sendSignal( s : Signal ) {
+	@:allow(owl.server.Server)
+	function sendSignal( s : Signal ) {
 		socket.send( s.toString(), function(e){
 			if( e != null ) trace(e);
 		} );

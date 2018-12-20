@@ -18,7 +18,7 @@ class Node {
 	@:allow(owl.client.Mesh) dynamic function onDisconnect() {}
 	@:allow(owl.client.Mesh) dynamic function onData( d : Dynamic ) {}
 
-	public dynamic function onChannel( c : DataChannel ) {}
+	public dynamic function onChannel( c : DataChannel ) {} //?
 
 	public var id(default,null) : String;
 	public var connected(default,null) = false;
@@ -30,8 +30,7 @@ class Node {
 		this.id = id;
 		connection = new PeerConnection();
 		connection.onicecandidate = e -> {
-			if( e.candidate != null )
-				onCandidate( e.candidate );
+			if( e.candidate != null ) onCandidate( e.candidate );
 		}
 		connection.oniceconnectionstatechange = e -> {
 			if( connection.iceConnectionState == DISCONNECTED ) {
@@ -76,6 +75,7 @@ class Node {
 	@:allow(owl.client.Mesh)
     function connectFrom( sdp : SessionDescription ) : Promise<SessionDescription> {
         initiator = false;
+		//TODO not here ?
 		/*
         connection.ondatachannel = function(e) {
             (channel == null) ? setDataChannel( e.channel ) : onChannel( e.channel );

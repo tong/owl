@@ -8,7 +8,6 @@ import js.node.Url;
 import js.npm.ws.Server;
 import js.npm.ws.WebSocket as Socket;
 import om.Json;
-import om.Nil;
 import om.StringTools;
 
 class Server {

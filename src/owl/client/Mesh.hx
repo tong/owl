@@ -6,6 +6,7 @@ import js.Promise;
 import js.html.rtc.DataChannelInit;
 import js.html.rtc.SessionDescription;
 import js.html.rtc.IceCandidate;
+import owl.Signal.Type;
 
 // enum Status {}
 
@@ -32,12 +33,12 @@ class Mesh {
 	}
 
 	public function join() {
-		server.signal( Signal.Type.join, { mesh : id } );
+		server.signal( Type.join, { mesh : id } );
 	}
 
 	public function leave() {
 		joined = false;
-		server.signal( Signal.Type.leave, { mesh : id } );
+		server.signal( Type.leave, { mesh : id } );
 		for( n in nodes ) n.disconnect();
 		nodes = [];
 		onLeave();
