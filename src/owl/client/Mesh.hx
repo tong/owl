@@ -2,175 +2,173 @@ package owl.client;
 
 #if owl_client
 
-import haxe.Json;
-import js.html.rtc.DataChannelInit;
-import js.html.rtc.IceCandidate;
+import js.Promise;
 import js.html.rtc.SessionDescription;
-import js.Browser.console;
+import js.html.rtc.IceCandidate;
 
-/**
-	Application network mesh.
-**/
-class Mesh<T:Node> {
+class Mesh {
 
-    public dynamic function onSignal( msg : Message ) {}
-    public dynamic function onJoin() {}
+	public dynamic function onJoin() {}
+	public dynamic function onConnect( n : Node ) {}
+	public dynamic function onDisconnect( n : Node ) {}
+	public dynamic function onData( n : Node, data : Dynamic ) {}
 
-    public dynamic function onNodeConnect( node : T ) {}
-    public dynamic function onNodeMessage( node : T, msg : Message ) {}
-    public dynamic function onNodeDisconnect( node : T ) {}
+	public var id(default,null) : String;
 
-	/**
-		Unique mesh id.
-	**/
-    public var id(default,null) : String;
+	var server : Server;
+	var nodes : Map<String,Node>;
 
-	/**
-	**/
-    public var joined(default,null) = false;
+	public function new( server : Server, id : String ) {
+		this.server = server;
+		this.id = id;
+	}
 
-	/**
-	**/
-    public var joinRequestSent(default,null) = false;
+	public function join() {
+		nodes = [];
+		//server.signal( { type : 'join', mesh : id } );
+		server.signal( new Signal( Signal.SignalType.join, { mesh : id } ) );
+	}
 
-	/**
-	**/
-    public var numNodes(default,null) : Int;
+	public function send( str : String ) {
+		for( n in nodes ) {
+			n.send(str);
+		}
+	}
 
-    var nodes : Map<String,T>;
+	public function handleSignal( signal : Signal ) {
+		switch signal.type {
+		case join:
+			/*
+			if( signal.data.nodes.length == 0 ) {
+				onJoin();
+			} else {
+				var ids : Array<String> = signal.data.nodes;
+				for( id in ids ) {
+					var node = addNode( id );
+					node.connectTo().then( function(sdp){
+						server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
+					});
+				}
+			}
+			*/
+			var ids : Array<String> = signal.data.nodes;
+			for( id in ids ) {
+				var node = addNode( id );
+				node.connectTo().then( function(sdp){
+					//server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
+					server.signal( new Signal( offer,  { mesh : this.id, node: node.id, sdp: sdp } ) );
+				});
+			}
+			onJoin();
+		case enter:
+			var node = addNode( signal.data.node );
+		case offer:
+			var node = nodes.get( signal.data.node );
+			node.connectFrom( new SessionDescription( signal.data.sdp ) ).then( function(sdp){
+				//server.signal( { type: 'answer', data: { mesh : id, node: node.id, sdp: sdp } } );
+				server.signal( new Signal( answer, { mesh : id, node: node.id, sdp: sdp } ) );
+			});
+		case answer:
+			var node = nodes.get( signal.data.node );
+			node.setRemoteDescription( new SessionDescription( signal.data.sdp ) ).then( function(_){
+				//trace('oi');
+				//node.send("fucvk");
+			});
+		case candidate:
+			var node = nodes.get( signal.data.node );
+			node.addIceCandidate( new IceCandidate( signal.data.candidate ) ).then( function(_){
+				//trace("OKOPKPKL");
+			});
+		default:
+			trace('unhandled signal '+signal);
+		}
+	}
 
-    public function new( id : String ) {
-        this.id = id;
-        nodes = new Map();
-        numNodes = 0;
-    }
+	function addNode( id : String ) : Node {
+		var node = new Node( id );
+		nodes.set( id, node );
+		node.onCandidate = function(c){
+			//server.signal( { type: 'candidate', data: { mesh : this.id, node: node.id, candidate: c } } );
+			server.signal( new Signal( candidate, { mesh : this.id, node: node.id, candidate: c } ) );
+		}
+		node.onConnect = function(){
+			onConnect( node );
+		}
+		node.onData = function(data){
+			onData( node, data );
+		}
+		node.onDisconnect = function(){
+			onDisconnect( node );
+		}
+		return node;
+	}
 
-    public inline function iterator() : Iterator<T>
-        return nodes.iterator();
+	/*
+	@:allow(owl.client.Server)
+	function init( nodeList : Array<Dynamic> ) : Promise<Mesh> {
+		trace("INIT "+nodeList.length);
+		if( nodeList.length == 0 )
+			return Promise.resolve( this );
 
-	/**
-		Handle signal message from server.
-	**/
-    public function handleSignal( msg : Message ) {
+		var proms = new Array<Promise<Dynamic>>();
+		for( id in nodeList ) {
+			var node = new Node( id );
+			nodes.set( id, node );
+			node.onConnect = function() {
+				trace("NODEM CONNECZED");
+			}
+			node.onCandidate = function(c){
+				//trace("XCXxxxxxxxxxxxxxxxxxxxxxxccccccccccccccccccc");
+				server.signal( { type: 'candidate', data: { mesh : this.id, node: node.id, candidate: c } } );
+			}
+			proms.push( node.connectTo().then( function(sdp){
+				//trace("XXXXXXXXXXXXXXXXXXX "+node.id);
+				server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
+			}) );
+			/*
+			node.connectTo().then( function(sdp){
+				//trace("XXXXXXXXXXXXXXXXXXX "+node.id);
+				server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
+			});
+		}
+		/*
+		return Promise.all( proms ).then( function(a){
+			trace(a);
+			return this;
+		});
+		//return Promise.reject();
+		return Promise.add([for(n in nodes)
+			n.connectTo().then( function(sdp){
+				//trace("XXXXXXXXXXXXXXXXXXX "+node.id);
+				server.signal( { type: 'offer', data: { mesh : this.id, node: node.id, sdp: sdp } } );
+			});
+		return Promise.all( [for(n in nodes) n.connectTo()] ).then( function(e){
+			trace(">>>>>>>>>>>>>>>>>>",e);
+			server.signal( { type: 'offer', data: { node: node.id, sdp: sdp } } );
+			return Promise.reject();
+		});
+	}
+	*/
 
-        switch msg.type {
+	/*
+	@:allow(owl.client.Server)
+	function init( nodeList : Array<Dynamic> ) : Promise<Mesh> {
+		return Promise.reject();
+	}
 
-        case 'join':
-            var data : { nodes: Array<String> } = msg.data;
-            if( data.nodes.length == 0 ) {
-                joinRequestSent = true;
-                onJoin();
-            } else {
-                for( id in data.nodes ) {
-                    var node = addNode( createNode( id ) );
-                    node.connectTo( createDataChannelConfig() ).then( function(sdp){
-                        onSignal( { type: 'offer', data: { node: node.id, sdp: sdp } } );
-                    }).catchError( function(e){
-                        trace(e);
-                    });
-                }
-            }
+	public function get( id : String ) {
+		return nodes.get( id );
+	}
 
-        case 'offer':
-            var data : { node: String, sdp: Dynamic } = msg.data;
-            var node = addNode( createNode( data.node ) );
-            node.connectFrom( new SessionDescription( data.sdp ) ).then( function(sdp){
-                onSignal( { type: 'answer', data: { node: node.id, sdp: sdp } } );
-            }).catchError( function(e){
-                trace('ERROR '+e);
-            });
+	public function add( node : Node ) {
+		nodes.set( node.id, node );
+	}
 
-        case 'answer':
-            var data : { node: String, sdp: Dynamic } = msg.data;
-            if( !nodes.exists( data.node ) ) {
-                //return;
-            }
-            var node = nodes.get( data.node );
-            node.setRemoteDescription( new SessionDescription( data.sdp ) ).then( function(_){
-                //trace('oi');
-                //peer.send({type:"fucvk"});
-            });
-
-        case 'candidate':
-            var data : { node: String, candidate: Dynamic } = msg.data;
-            var node = nodes.get( data.node );
-            node.addIceCandidate( new IceCandidate( data.candidate ) ).then( function(_){
-            });
-        }
-    }
-
-	/**
-	**/
-    public function join() {
-        onSignal( { type: 'join', data: { mesh: id } } );
-    }
-
-	/**
-	**/
-    public function leave() {
-        for( node in nodes ) node.disconnect();
-        nodes = new Map();
-    }
-
-	/**
-	**/
-    public function broadcastMessage( msg : Message )  {
-        var str = try Json.stringify( msg ) catch(e:Dynamic) {
-            console.error(e);
-            return;
-        }
-        broadcast( str );
-    }
-
-	/**
-	**/
-    public inline function broadcast( str : String )  {
-        for( n in nodes ) n.send( str );
-    }
-
-	/**
-	**/
-    public function getConnectedNodes() : Array<T> {
-        var nodes = new Array<T>();
-        for( n in this.nodes ) if( n.connected ) nodes.push( n );
-        return nodes;
-    }
-
-    function createNode( id : String ) : T {
-        return cast new Node( id );
-    }
-
-    function addNode( node : T ) : T {
-        nodes.set( node.id, node );
-        numNodes++;
-        node.onCandidate = function(candidate) {
-            onSignal( { type: 'candidate', data: { node: node.id, candidate: candidate } } );
-        }
-        node.onConnect = function() {
-            if( !joinRequestSent ) {
-                node.sendMessage( { type: 'join', data: null } );
-                joinRequestSent = true;
-                onJoin();
-            }
-            onNodeConnect( node );
-        }
-        node.onMessage = function(msg) onNodeMessage( node, msg );
-        node.onDisconnect = function() {
-            nodes.remove( node.id );
-            numNodes--;
-            onNodeDisconnect( node );
-        }
-        return node;
-    }
-
-    function createDataChannelConfig() : DataChannelInit {
-        return {
-            ordered: true,
-        //    outOfOrderAllowed: false,
-            //maxRetransmitTime: 400,
-            //maxPacketLifeTime: 1000
-        };
-    }
+	@:allow(owl.client.Server)
+	function handleSignal( signal : Dynamic ) {
+		trace("handleSignal");
+	}
+	*/
 
 }
 
