@@ -11,12 +11,12 @@ class Mesh {
 	public var maxNodes(default,null) : Int;
 	public var permanent(default,null) : Bool;
 	public var numNodes(default,null) = 0;
-	//public var public_(default,null) : String;
+	//public var visible(default,null) : String;
 	//public var password(default,null) : String;
 
 	var nodes = new Map<String,Node>();
 
-	public function new( id : String, ?maxNodes : Int, permanent = true ) {
+	public function new( id : String, ?maxNodes : Int, permanent = false ) {
         this.id = id;
     	this.maxNodes = maxNodes;
     	this.permanent = permanent;

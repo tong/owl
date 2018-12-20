@@ -32,8 +32,22 @@ class Server {
 		return request( 'lobby' );
 	}
 
-	public function connect( protocol = 'owl' ) : Promise<Nil> {
-		return new Promise( function(resolve,reject){
+	/*
+	public inline function admin( cmd : String ) : Promise<Array<String>> {
+		return request( 'admin/$cmd' );
+	}
+
+	public inline function nope( cmd : String ) : Promise<Array<String>> {
+		return request( 'nope/$cmd' );
+	}
+
+	public inline function status( mesh ) : Promise<Array<String>> {
+		return request( 'status/$mesh' );
+	}
+	*/
+
+	public function connect( protocol = 'owl' ) : Promise<Server> {
+		return new Promise( (resolve,reject) -> {
 			var url = 'ws://$host:$port';
 			//socket = new WebSocket( url, protocol );
 			socket = new WebSocket( url );
@@ -41,22 +55,41 @@ class Server {
 				//connected = true;
 				socket.onclose = function(e:CloseEvent) {
 					trace("onclose "+e);
+					meshes = [];
 					onDisconnect();
+					//reject();
 					//trace(om.net.WebSocket.ErrorCode.getMeaning( e.code ) );
 					//connected = false;
 					//callback( new Error( om.net.WebSocket.ErrorCode.getMeaning( e.code ) ) );
 				}
 				socket.onmessage = function(e:MessageEvent) {
-					var sig = Signal.fromString( e.data );
+					var sig = Signal.parse( e.data );
 					trace("SIGNAL "+sig.type);
 					if( sig.type == error ) {
 						trace("TODO ON ERROR "+sig);
 					} else {
 						var m = meshes.get( sig.data.mesh );
-						m.handleSignal( sig );
+						if( m != null ) {
+							m.handleSignal( sig );
+						} else {
+							//TODO
+							trace('mesh not exists');
+						}
 					}
 				}
-				resolve( nil );
+				resolve( this );
+			}
+		});
+	}
+
+	public function disconnect() : Promise<Server> {
+		return new Promise( (resolve,reject) -> {
+			if( socket == null ) reject( 'not connected' ) else {
+				socket.onclose = e -> {
+					socket = null;
+					resolve( this );
+				}
+				socket.close();
 			}
 		});
 	}

@@ -22,23 +22,20 @@ class Node {
 
 		socket.once( 'close', function(e) {
 			//trace(e);
+			this.address = null;
             onDisconnect();
         });
 		socket.on( 'message', function(e) {
-			onSignal( Signal.fromString( e ) );
+			onSignal( Signal.parse( e ) );
 		});
+	}
 
-		//send( { type: 'connect', id : id } );
+	public function signal( type : Signal.Type, ?data : Dynamic ) {
+		sendSignal( new Signal( type, data ) );
 	}
 
 	public function sendSignal( s : Signal ) {
 		socket.send( s.toString(), function(e){
-			if( e != null ) trace(e);
-		} );
-	}
-
-	public function signal( type : Signal.Type, ?data : Dynamic ) {
-		socket.send( new Signal( type, data ).toString(), function(e){
 			if( e != null ) trace(e);
 		} );
 	}
