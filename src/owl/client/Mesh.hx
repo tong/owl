@@ -44,35 +44,42 @@ class Mesh {
 		onLeave();
 	}
 
-	public function broadcast( str : String ) {
-		for( n in nodes ) {
-			n.send( str );
-		}
+	@:overload( function( data : js.html.Blob ) : Void {} )
+	@:overload( function( data : js.html.ArrayBuffer ) : Void {} )
+	@:overload( function( data : js.html.ArrayBufferView ) : Void {} )
+	public function send( data : String ) {
+		for( n in nodes ) n.send( data );
 	}
 
 	@:allow(owl.client.Server)
 	function handleSignal( sig : Signal ) {
 		switch sig.type {
 		case join:
-			joined = true;
-			if( sig.data.nodes.length > 0 ) {
-				var ids : Array<String> = sig.data.nodes;
-				for( id in ids ) {
-					var n = addNode( createNode( id ) );
-					n.connectTo( createDataChannelConfig() ).then( function(sdp){
-						server.signal( offer, { mesh : this.id, node: n.id, sdp: sdp } );
-					});
+			if( sig.data.node == null ) {
+				if( sig.data.nodes.length > 0 ) {
+					var ids : Array<String> = sig.data.nodes;
+					for( id in ids ) {
+						var n = addNode( createNode( id ) );
+						n.connectTo( createDataChannelConfig() ).then( function(sdp){
+							server.signal( offer, { mesh : this.id, node: n.id, sdp: sdp } );
+						});
+					}
 				}
+				joined = true;
+				onJoin();
+			} else {
+				var n = addNode( createNode( sig.data.node ) );
 			}
-			onJoin();
 	/*
 		case leave:
 			joined = false;
 			onLeave();
 	*/
-		case enter:
+		/*
+		case enterr:
 			trace("EENTER");
 			var n = addNode( createNode( sig.data.node ) );
+		*/
 		case offer:
 			var n = nodes.get( sig.data.node );
 			n.connectFrom( new SessionDescription( sig.data.sdp ) ).then( function(sdp){

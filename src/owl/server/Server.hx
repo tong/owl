@@ -54,7 +54,8 @@ class Server {
 		trace( "client connected "+(Lambda.count(nodes)+1) );
 		var node = createNode( s, r.connection.remoteAddress );
 		nodes.set( node.id, node );
-		node.onSignal = sig -> {
+		node.signal( connect, { id : node.id } );
+		node.onSignal = function(sig) {
 			trace("SIGNAL "+sig.type);
 			switch sig.type {
 			case join:
@@ -65,13 +66,11 @@ class Server {
 					if( mesh.maxNodes != null && mesh.numNodes >= mesh.maxNodes ) {
 						node.signal( error, { info : 'max nodes' } );
 					} else {
-						var nodes = [for(n in mesh) n.id];
+						node.signal( join, { mesh : mesh.id, nodes : [for(n in mesh) n.id] } );
 						for( n in mesh ) {
-							n.signal( enter, { mesh : mesh.id, node : node.id } );
-							//n.signal( leave, { mesh : mesh.id, node : node.id } );
+							n.signal( join, { mesh : mesh.id, node : node.id } );
 						}
 						mesh.add( node );
-						node.signal( join, { mesh : mesh.id, nodes : nodes } );
 					}
 				} else {
 					trace("NEW MESH "+sig.data.mesh);
@@ -146,7 +145,6 @@ class Server {
 		default:
 			res.statusCode = 404;
 		}
-		//res.setHeader( 'Access-Control-Allow-Origin', '*' );
 		for( k in accessControl.keys() )
 			res.setHeader( 'Access-Control-$k', accessControl.get( k ) );
 		if( data == null ) res.end() else {

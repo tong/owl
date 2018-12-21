@@ -4,22 +4,22 @@ import om.Json;
 
 @:enum abstract Type(Int) {
 
-	var join = 0;
-	var leave = 1;
-	var enter = 2; //TODO remove
+	var connect = 0;
+	var join = 1;
+	var leave = 2;
 
 	var offer = 10;
 	var answer = 11;
 	var candidate = 12;
 
-	var error = 100;
+	var error = -1;
 
 	inline function new(t) this = t;
 
 	public function toString() return switch new Type(this) {
+		case connect: "connect";
 		case join: "join";
 		case leave: "leave";
-		case enter: "enter";
 		case offer: "offer";
 		case answer: "answer";
 		case candidate: "candidate";
@@ -51,15 +51,12 @@ class Signal {
 		return o;
 	}
 
-	public inline function toString() : String {
+	public inline function toString() : String
 		return Json.stringify( toJson() );
-	}
 
-	public static inline function fromJson( o : { t : Type, ?d : Dynamic } ) : Signal {
+	public static inline function fromJson( o : { t : Signal.Type, ?d : Dynamic } ) : Signal
 		return new Signal( o.t, o.d );
-	}
 
-	public static inline function parse( s : String ) : Signal {
+	public static inline function parse( s : String ) : Signal
 		return fromJson( Json.parse( s ) );
-	}
 }
