@@ -4,7 +4,10 @@ import om.Json;
 
 @:enum abstract Type(Int) {
 
+	var error = -1;
+
 	var connect = 0;
+
 	var join = 1;
 	var leave = 2;
 
@@ -12,7 +15,8 @@ import om.Json;
 	var answer = 11;
 	var candidate = 12;
 
-	var error = -1;
+	//var ping = "ping";
+    //var pong = "pong";
 
 	inline function new(t) this = t;
 

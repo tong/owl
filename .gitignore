@@ -1,5 +1,3 @@
-app/
-bin/
-example/*.js*
-owl.js*
+_*
+doc/
 package-lock.json

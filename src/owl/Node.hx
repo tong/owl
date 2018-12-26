@@ -5,4 +5,6 @@ typedef Node =
 	owl.server.Node;
 	#elseif owl_client
 	owl.client.Node;
+	#elseif xml
+	;
 	#end

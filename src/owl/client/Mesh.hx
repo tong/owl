@@ -8,36 +8,60 @@ import js.html.rtc.SessionDescription;
 import js.html.rtc.IceCandidate;
 import owl.Signal.Type;
 
-// enum Status {}
+private enum State {
+	joining;
+	joined;
+}
 
 class Mesh {
 
-	public dynamic function onJoin() {}
+	//public dynamic function onJoin() {}
 	public dynamic function onLeave() {}
 
-	public dynamic function onNodeJoin( n : Node ) {}
-	public dynamic function onNodeLeave( n : Node ) {}
-	public dynamic function onNodeData( n : Node, d : Dynamic ) {}
+	public dynamic function onNodeJoin<T:Node>( n : T ) {}
+	public dynamic function onNodeLeave<T:Node>( n : T ) {}
+	public dynamic function onNodeData<T:Node>( n : T, d : Dynamic ) {}
 
-	public var id(default,null) : String;
-	public var joined(default,null) = false;
-	//public var numNodes(default,null) = 0;
+	public final id : String;
+	public var state(default,null) : State;
+	//public var joined(default,null) = false;
+	public var numNodes(default,null) = 0;
 
 	var server : Server;
 	var nodes = new Map<String,Node>();
 
-	@:allow(owl.client.Server)
-	function new( server : Server, id : String ) {
+	var joinHandler : Void->Void;
+	//var numJoinedNodes = 0;
+	var numNodesJoinRemaining = 0;
+	//var nodeJoinHandler : Void->Void;
+
+	//@:allow(owl.client.Server)
+	public function new( server : Server, id : String ) {
 		this.server = server;
 		this.id = id;
 	}
 
-	public function join() {
-		server.signal( Type.join, { mesh : id } );
+	public inline function iterator() : Iterator<Node>
+		return nodes.iterator();
+
+	@:allow(owl.client.Server)
+	function join<T:Mesh>( ?info : Dynamic ) : Promise<T> {
+		return new Promise( function(resolve,reject) {
+			state = joining;
+			joinHandler = function(){
+				//trace("JOINHANDLER");
+				state = joined;
+				resolve( cast this );
+				//trace("REPORT NODEs..........."+Lambda.count(nodes));
+				//for( n in nodes ) onNodeJoin( n );
+				//return resolve( this );
+			}
+			server.signal( Type.join, { mesh : id, info : info } );
+		});
 	}
 
 	public function leave() {
-		joined = false;
+		//joined = false;
 		server.signal( Type.leave, { mesh : id } );
 		for( n in nodes ) n.disconnect();
 		nodes = [];
@@ -51,10 +75,45 @@ class Mesh {
 		for( n in nodes ) n.send( data );
 	}
 
+	public function first() : Node {
+		return nodes.iterator().next();
+	}
+
 	@:allow(owl.client.Server)
 	function handleSignal( sig : Signal ) {
 		switch sig.type {
 		case join:
+			switch state {
+			case joining:
+				if( sig.data.nodes.length == 0 ) {
+					joinHandler();
+				} else {
+					trace(sig.data);
+					var _nodes : Array<Dynamic> = sig.data.nodes;
+					numNodes = _nodes.length;
+					for( n in _nodes ) {
+						trace(n);
+						addNode( createNode( n.id, n.info ) ).connectTo( createDataChannelConfig() ).then( function(sdp){
+							server.signal( offer, { mesh : this.id, node: n.id, sdp: sdp } );
+						});
+					}
+					/*
+					var ids : Array<String> = sig.data.nodes;
+					numNodes = ids.length;
+					for( id in ids ) {
+						//var n = addNode( createNode( id ) );
+						addNode( createNode( id ) ).connectTo( createDataChannelConfig() ).then( function(sdp){
+							server.signal( offer, { mesh : this.id, node: id, sdp: sdp } );
+						});
+					}
+					*/
+				}
+			case joined:
+				//trace("I AM JOINED "+sig.data );
+				//Another joined
+				var n = addNode( createNode( sig.data.node.id, sig.data.node.info ) );
+			}
+			/*
 			if( sig.data.node == null ) {
 				if( sig.data.nodes.length > 0 ) {
 					var ids : Array<String> = sig.data.nodes;
@@ -68,8 +127,10 @@ class Mesh {
 				joined = true;
 				onJoin();
 			} else {
+				//Another joined
 				var n = addNode( createNode( sig.data.node ) );
 			}
+			*/
 	/*
 		case leave:
 			joined = false;
@@ -103,13 +164,15 @@ class Mesh {
 
 	function addNode( n : Node ) : Node {
 		nodes.set( n.id, n );
-	//	numNodes++;
+		//numNodes++;
 		n.onCandidate = function(c){
 			server.signal( candidate, { mesh : this.id, node: n.id, candidate: c } );
 		}
 		n.onConnect = function(){
-			trace("onConnect");
-			onNodeJoin( n );
+			switch state {
+			case joining: if( ++numNodesJoinRemaining == numNodes ) joinHandler();
+			default: onNodeJoin( n );
+			}
 		}
 		n.onData = function(d){
 			onNodeData( n, d );
@@ -118,13 +181,13 @@ class Mesh {
 			//TODO
 			trace("onDisconnect");
 			nodes.remove( n.id );
-			//numNodes--;
+			numNodes--;
 			onNodeLeave( n );
 		}
 		return n;
 	}
 
-	function createNode( id : String ) : Node {
+	function createNode( id : String, ?info : Dynamic ) : Node {
 		return new Node( id );
 	}
 

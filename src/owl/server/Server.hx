@@ -51,8 +51,8 @@ class Server {
 
 	function handleConnection(s,r) {
 		//trace(s,r);
-		trace( "client connected "+(Lambda.count(nodes)+1) );
-		var node = createNode( s, r.connection.remoteAddress );
+		trace( "node connect "+(Lambda.count(nodes)+1) );
+		var node = createNode( s, createNodeId(), r.connection.remoteAddress );
 		nodes.set( node.id, node );
 		node.signal( connect, { id : node.id } );
 		node.onSignal = function(sig) {
@@ -60,24 +60,35 @@ class Server {
 			switch sig.type {
 			case join:
 				if( meshes.exists( sig.data.mesh ) ) {
-					trace("MESH EXISTS");
+					//trace("MESH EXISTS");
 					var mesh = meshes.get( sig.data.mesh );
 					//trace(mesh.numNodes,mesh.maxNodes);
 					if( mesh.maxNodes != null && mesh.numNodes >= mesh.maxNodes ) {
 						node.signal( error, { info : 'max nodes' } );
 					} else {
-						node.signal( join, { mesh : mesh.id, nodes : [for(n in mesh) n.id] } );
+						node.signal( join, {
+							mesh : mesh.id,
+							nodes : [for(n in mesh) { id : n.id, info : mesh.infos.get(n.id) }]
+						} );
+						mesh.add( node, sig.data.info );
 						for( n in mesh ) {
-							n.signal( join, { mesh : mesh.id, node : node.id } );
+							if( n.id == node.id )
+								continue;
+							n.signal( join, {
+								mesh : mesh.id,
+								node : {
+									id : node.id,
+									info : mesh.infos.get( node.id )
+								}
+							} );
 						}
-						mesh.add( node );
 					}
 				} else {
-					trace("NEW MESH "+sig.data.mesh);
+					//trace("NEW MESH "+sig.data.mesh);
 					//var mesh = createMesh( signal.data.mesh );
 					var mesh = createMesh( sig.data.mesh );
 					meshes.set( mesh.id, mesh );
-					mesh.add( node );
+					mesh.add( node, sig.data.info );
 					node.signal( join, { mesh : mesh.id, nodes : [] } );
 				}
 			case leave:
@@ -118,6 +129,7 @@ class Server {
 
 	function handleRequest( req : js.node.http.IncomingMessage, res : js.node.http.ServerResponse ) {
 		var url = Url.parse( req.url, true );
+		//trace(url);
 		var path = url.path.substr(1);
 		var parts = path.split( '/' );
 		var data : Dynamic = null;
@@ -157,8 +169,8 @@ class Server {
 		return new Mesh( id );
 	}
 
-	function createNode( sock : Socket, ip : String  ) : Node {
-		return new Node( sock, createNodeId(), ip );
+	function createNode( sock : Socket, id : String, ip : String  ) : Node {
+		return new Node( sock, id, ip );
 	}
 
 	function createNodeId( len = 16 ) : String {

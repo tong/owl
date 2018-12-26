@@ -1,0 +1,23 @@
+--no-output
+-lib owl
+--macro include('owl',[])
+-D doc-gen
+-dce no
+--each
+
+--next
+-js x
+-xml doc/js.xml
+-D owl_client
+
+--next
+-js x
+-xml doc/node.xml
+-lib hxnodejs
+-lib hxnodejs-ws
+-D owl_server
+
+#--next
+#-js x
+#-xml doc/electron.xml
+#-lib electron

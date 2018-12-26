@@ -9,8 +9,10 @@ class Node {
 	@:allow(owl.server.Server) dynamic function onDisconnect() {}
 	@:allow(owl.server.Server) dynamic function onSignal( s : Signal ) {}
 
-	public var id(default,null) : String;
-	public var address(default,null) : String;
+	public final id : String;
+	public final address : String;
+
+	//public var info(default,null) : Dynamic;
 
 	var socket : Socket;
 
@@ -22,7 +24,6 @@ class Node {
 
 		socket.once( 'close', function(e) {
 			//trace(e);
-			this.address = null;
             onDisconnect();
         });
 		socket.on( 'message', function(e) {

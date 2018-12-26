@@ -16,11 +16,11 @@ class Node {
 	@:allow(owl.client.Mesh) dynamic function onCandidate( e : IceCandidate ) {}
 	@:allow(owl.client.Mesh) dynamic function onConnect() {}
 	@:allow(owl.client.Mesh) dynamic function onDisconnect() {}
-	@:allow(owl.client.Mesh) dynamic function onData( d : Dynamic ) {}
+	@:allow(owl.client.Mesh) dynamic function onData<T>( d : T ) {}
 
 	public dynamic function onChannel( c : DataChannel ) {} //?
 
-	public var id(default,null) : String;
+	public final id : String;
 	public var connected(default,null) = false;
 	public var initiator(default,null) : Bool;
 	public var connection(default,null) : PeerConnection;
@@ -116,10 +116,14 @@ class Node {
 
 	function setDataChannel( ch : DataChannel ) {
         channel = ch;
+        channel.binaryType = ARRAYBUFFER;
         channel.onopen = function(e) {
 			connected = true;
             onConnect();
         }
+        channel.onbufferedamountlow = function(e) {
+			trace( e );
+        };
         channel.onmessage = function(e) {
 			onData( e.data );
         };

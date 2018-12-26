@@ -32,6 +32,9 @@ class Server {
 			var url = 'ws://$host:$port';
 			//socket = new WebSocket( url, protocol );
 			socket = new WebSocket( url );
+			socket.onerror = function(e) {
+				reject(e);
+			}
 			socket.onopen = function() {
 				//connected = true;
 				socket.onclose = function(e:CloseEvent) {
@@ -45,10 +48,10 @@ class Server {
 				}
 				socket.onmessage = function(e:MessageEvent) {
 					var sig = Signal.parse( e.data );
-					trace("SIGNAL "+sig.type);
 					if( sig.type == error ) {
 						trace("TODO ON ERROR "+sig);
 					} else {
+						trace("SIGNAL "+sig.type);
 						switch sig.type {
 						case connect:
 							this.id = sig.data.id;
@@ -86,12 +89,39 @@ class Server {
 		});
 	}
 
-	public function join( id : String ) : Mesh {
-		var m = new Mesh( this, id );
+	public function join<T:Mesh>( id : String, ?info : Dynamic ) : Promise<T> {
+		if( meshes.exists( id ) )
+			return Promise.reject( 'already joined' );
+		var m = createMesh( id );
 		meshes.set( id, m );
-		//m.join();
-		signal( Signal.Type.join, { mesh : id } );
-		return m;
+		return m.join( info );
+
+		/*
+		return meshes.exists( id ) ? Promise.reject( 'already joined' ) :
+			new Promise( function(resolve,reject){
+				var m = new Mesh( this, id );
+				meshes.set( id, m );
+				//signal( Signal.Type.join, { mesh : id } );
+				//return resolve( m );
+				return m.join().then( function(m){
+					trace(";;;;;;;;;;;;;;;;;;;;;;");
+					return m;
+				});
+			});
+			*/
+		/*
+		return if( meshes.exists( id ) ) Promise.reject( 'already joined' );
+		else new Promise( function(resolve,reject){
+			var m = new Mesh( this, id );
+			meshes.set( id, m );
+			signal( Signal.Type.join, { mesh : id } );
+			return resolve( m );
+		});
+		*/
+	}
+
+	function createMesh( id : String ) : Mesh {
+		return new Mesh( this, id );
 	}
 
 	/*

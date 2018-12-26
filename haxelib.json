@@ -1,17 +1,14 @@
 {
     "name": "owl",
     "version": "0.0.0",
-    "description": "",
-    "tags": [],
+    "description": "Mesh network application framework",
+    "tags": ["webrtc","p2p"],
     "url": "https://github.com/tong/owl",
     "license": "OM",
     "contributors": ["tong"],
     "releasenote": "See CHANGELOG.md",
     "classPath" : "src/",
     "dependencies": {
-		"hxnodejs": "",
-		"hxnodejs-ws": "",
-		"om.core": "",
-		"om.net": ""
+		"om.core": ""
     }
 }
