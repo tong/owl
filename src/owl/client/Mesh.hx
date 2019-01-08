@@ -11,6 +11,7 @@ import owl.Signal.Type;
 private enum State {
 	joining;
 	joined;
+	//leaving;
 }
 
 class Mesh {
@@ -22,18 +23,16 @@ class Mesh {
 	public dynamic function onNodeLeave<T:Node>( n : T ) {}
 	public dynamic function onNodeData<T:Node>( n : T, d : Dynamic ) {}
 
+	public final server : Server;
 	public final id : String;
+
 	public var state(default,null) : State;
-	//public var joined(default,null) = false;
 	public var numNodes(default,null) = 0;
 
-	var server : Server;
 	var nodes = new Map<String,Node>();
-
-	var joinHandler : Void->Void;
-	//var numJoinedNodes = 0;
 	var numNodesJoinRemaining = 0;
-	//var nodeJoinHandler : Void->Void;
+	var joinHandler : Void->Void;
+	var joinInfo : Dynamic;
 
 	//@:allow(owl.client.Server)
 	public function new( server : Server, id : String ) {
@@ -45,13 +44,16 @@ class Mesh {
 		return nodes.iterator();
 
 	@:allow(owl.client.Server)
-	function join<T:Mesh>( ?info : Dynamic ) : Promise<T> {
+	//function join<T:Mesh>( ?info : Dynamic ) : Promise<T> {
+	function join<I>( ?info : I ) : Promise<I> {
 		return new Promise( function(resolve,reject) {
 			state = joining;
+			joinInfo = info;
 			joinHandler = function(){
 				//trace("JOINHANDLER");
 				state = joined;
-				resolve( cast this );
+				//resolve( cast this );
+				resolve( joinInfo );
 				//trace("REPORT NODEs..........."+Lambda.count(nodes));
 				//for( n in nodes ) onNodeJoin( n );
 				//return resolve( this );
@@ -89,48 +91,20 @@ class Mesh {
 					joinHandler();
 				} else {
 					trace(sig.data);
+					joinInfo = sig.data.info;
 					var _nodes : Array<Dynamic> = sig.data.nodes;
 					numNodes = _nodes.length;
 					for( n in _nodes ) {
-						trace(n);
 						addNode( createNode( n.id, n.info ) ).connectTo( createDataChannelConfig() ).then( function(sdp){
 							server.signal( offer, { mesh : this.id, node: n.id, sdp: sdp } );
 						});
 					}
-					/*
-					var ids : Array<String> = sig.data.nodes;
-					numNodes = ids.length;
-					for( id in ids ) {
-						//var n = addNode( createNode( id ) );
-						addNode( createNode( id ) ).connectTo( createDataChannelConfig() ).then( function(sdp){
-							server.signal( offer, { mesh : this.id, node: id, sdp: sdp } );
-						});
-					}
-					*/
 				}
 			case joined:
 				//trace("I AM JOINED "+sig.data );
 				//Another joined
 				var n = addNode( createNode( sig.data.node.id, sig.data.node.info ) );
 			}
-			/*
-			if( sig.data.node == null ) {
-				if( sig.data.nodes.length > 0 ) {
-					var ids : Array<String> = sig.data.nodes;
-					for( id in ids ) {
-						var n = addNode( createNode( id ) );
-						n.connectTo( createDataChannelConfig() ).then( function(sdp){
-							server.signal( offer, { mesh : this.id, node: n.id, sdp: sdp } );
-						});
-					}
-				}
-				joined = true;
-				onJoin();
-			} else {
-				//Another joined
-				var n = addNode( createNode( sig.data.node ) );
-			}
-			*/
 	/*
 		case leave:
 			joined = false;
@@ -170,8 +144,11 @@ class Mesh {
 		}
 		n.onConnect = function(){
 			switch state {
-			case joining: if( ++numNodesJoinRemaining == numNodes ) joinHandler();
-			default: onNodeJoin( n );
+			case joining:
+				if( ++numNodesJoinRemaining == numNodes ) joinHandler();
+			default:
+				numNodes++;
+				onNodeJoin( n );
 			}
 		}
 		n.onData = function(d){
@@ -188,8 +165,14 @@ class Mesh {
 	}
 
 	function createNode( id : String, ?info : Dynamic ) : Node {
-		return new Node( id );
+		return new Node( id, info );
 	}
+
+	/*
+	function createNode( id : String, ?configuration : js.html.rtc.Configuration, ?info : Dynamic ) : Node {
+		return new Node( id, configuration, info );
+	}
+	*/
 
 	function createDataChannelConfig() : DataChannelInit {
 		return null;

@@ -14,6 +14,8 @@ class Server {
 
 	public var host(default,null) : String;
     public var port(default,null) : Int;
+
+    public var maxNodes(default,null) : Int;
     public var accessControl = ['Allow-Origin'=>'*'];
 
 	var net : js.node.http.Server;
@@ -21,9 +23,10 @@ class Server {
 	var nodes = new Map<String,Node>();
 	var meshes = new Map<String,Mesh>();
 
-	public function new( host : String, port : Int ) {
+	public function new( host : String, port : Int, ?maxNodes : Int ) {
         this.host = host;
         this.port = port;
+        this.maxNodes = maxNodes;
     }
 
 	public function start() : Promise<Server> {
@@ -49,9 +52,15 @@ class Server {
 		return true;
 	}
 
-	function handleConnection(s,r) {
+	function handleConnection( s : Socket, r ) {
 		//trace(s,r);
-		trace( "node connect "+(Lambda.count(nodes)+1) );
+		var numNodes = Lambda.count( nodes );
+		if( maxNodes != null && numNodes == maxNodes ) {
+			trace( 'max server nodes [$maxNodes] reached' );
+			s.close( 1013, 'max nodes' );
+			return;
+		}
+		trace( "node connect "+(numNodes+1) );
 		var node = createNode( s, createNodeId(), r.connection.remoteAddress );
 		nodes.set( node.id, node );
 		node.signal( connect, { id : node.id } );
@@ -66,11 +75,15 @@ class Server {
 					if( mesh.maxNodes != null && mesh.numNodes >= mesh.maxNodes ) {
 						node.signal( error, { info : 'max nodes' } );
 					} else {
+						var others = [for(n in mesh) { id : n.id, info : mesh.infos.get(n.id) }];
+						mesh.addNode( node, sig.data.info );
 						node.signal( join, {
 							mesh : mesh.id,
-							nodes : [for(n in mesh) { id : n.id, info : mesh.infos.get(n.id) }]
+							info : mesh.infos.get( node.id ),
+							nodes : others
+							//nodes : [for(n in mesh) { id : n.id, info : mesh.infos.get(n.id) }]
 						} );
-						mesh.add( node, sig.data.info );
+						//mesh.addNode( node, sig.data.info );
 						for( n in mesh ) {
 							if( n.id == node.id )
 								continue;
@@ -88,13 +101,13 @@ class Server {
 					//var mesh = createMesh( signal.data.mesh );
 					var mesh = createMesh( sig.data.mesh );
 					meshes.set( mesh.id, mesh );
-					mesh.add( node, sig.data.info );
-					node.signal( join, { mesh : mesh.id, nodes : [] } );
+					mesh.addNode( node, sig.data.info );
+					node.signal( join, { mesh : mesh.id, info : mesh.infos.get( node.id ), nodes : [] } );
 				}
 			case leave:
-				trace(">>>>>>>>LEAVE "+sig);
+				//trace(">>>>>>>>LEAVE "+sig);
 				var m = meshes.get( sig.data.mesh );
-				if( m.remove( node ) ) {
+				if( m.removeNode( node ) ) {
 					//TODO really report ?
 					//node.signal( leave, { mesh : m.id } );
 					//for( n in m ) n.signal( leave, { mesh : m.id, node : n.id } );
@@ -121,7 +134,7 @@ class Server {
 			}
 		}
 		node.onDisconnect = function(){
-			for( m in meshes ) m.remove( node );
+			for( m in meshes ) m.removeNode( node );
 			nodes.remove( node.id );
 			trace("client disconnected "+(Lambda.count(nodes)) );
 		}

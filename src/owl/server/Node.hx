@@ -12,8 +12,6 @@ class Node {
 	public final id : String;
 	public final address : String;
 
-	//public var info(default,null) : Dynamic;
-
 	var socket : Socket;
 
 	public function new( socket : Socket, id : String, address : String ) {

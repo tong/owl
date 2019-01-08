@@ -26,8 +26,14 @@ class Node {
 	public var connection(default,null) : PeerConnection;
 	public var channel(default,null) : DataChannel;
 
-	public function new( id : String ) {
+	/** Custom node information **/
+	public var info(default,null) : Dynamic;
+
+	//public function new( id : String, ?configuration : js.html.rtc.Configuration, ?info : Dynamic ) {
+	public function new( id : String, ?info : Dynamic ) {
 		this.id = id;
+		this.info = info;
+		//connection = new PeerConnection( configuration );
 		connection = new PeerConnection();
 		connection.onicecandidate = e -> {
 			if( e.candidate != null ) onCandidate( e.candidate );

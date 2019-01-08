@@ -9,12 +9,17 @@ import js.html.MessageEvent;
 import js.html.WebSocket;
 import om.FetchTools.*;
 import om.Json;
-import om.Nil;
+
+typedef Join<M:Mesh,I> = {
+	var mesh : M;
+	var info : I;
+}
 
 class Server {
 
-	public dynamic function onDisconnect() {}
+	public dynamic function onDisconnect( ?reason : String ) {}
 
+	//public var connected(default,null) = false;
 	public var host(default,null) : String;
     public var port(default,null) : Int;
     public var id(default,null) : String; // My node id
@@ -22,12 +27,10 @@ class Server {
 	var socket : WebSocket;
 	var meshes = new Map<String,Mesh>();
 
-	public function new( host : String, port : Int ) {
-        this.host = host;
-        this.port = port;
-    }
+	public function new() {}
 
-	public function connect( protocol = 'owl' ) : Promise<Server> {
+	//public function connect( protocol = 'owl' ) : Promise<Server> {
+	public function connect( host : String, port : Int, protocol = 'owl' ) : Promise<Server> {
 		return new Promise( function(resolve,reject) {
 			var url = 'ws://$host:$port';
 			//socket = new WebSocket( url, protocol );
@@ -41,7 +44,7 @@ class Server {
 					trace("onclose "+e);
 					id = null;
 					meshes = [];
-					onDisconnect();
+					if( onDisconnect != null ) onDisconnect( e.reason );
 					//trace(om.net.WebSocket.ErrorCode.getMeaning( e.code ) );
 					//connected = false;
 					//callback( new Error( om.net.WebSocket.ErrorCode.getMeaning( e.code ) ) );
@@ -89,50 +92,20 @@ class Server {
 		});
 	}
 
-	public function join<T:Mesh>( id : String, ?info : Dynamic ) : Promise<T> {
+	//public function join<T:Mesh>( id : String, ?info : Dynamic ) : Promise<{mesh:T,info:Dynamic}> {
+	public function join<M:Mesh,I>( id : String, ?info : I ) : Promise<Join<M,I>> {
 		if( meshes.exists( id ) )
 			return Promise.reject( 'already joined' );
-		var m = createMesh( id );
+		var m : M = createMesh( id );
 		meshes.set( id, m );
-		return m.join( info );
-
-		/*
-		return meshes.exists( id ) ? Promise.reject( 'already joined' ) :
-			new Promise( function(resolve,reject){
-				var m = new Mesh( this, id );
-				meshes.set( id, m );
-				//signal( Signal.Type.join, { mesh : id } );
-				//return resolve( m );
-				return m.join().then( function(m){
-					trace(";;;;;;;;;;;;;;;;;;;;;;");
-					return m;
-				});
-			});
-			*/
-		/*
-		return if( meshes.exists( id ) ) Promise.reject( 'already joined' );
-		else new Promise( function(resolve,reject){
-			var m = new Mesh( this, id );
-			meshes.set( id, m );
-			signal( Signal.Type.join, { mesh : id } );
-			return resolve( m );
-		});
-		*/
-	}
-
-	function createMesh( id : String ) : Mesh {
-		return new Mesh( this, id );
-	}
-
-	/*
-	public function join( id : String ) : Promise<Dynamic> {
-		return request( 'join', { node : myid, mesh : id } ).then( function(nodes){
-			var mesh = new Mesh( this, id );
-			meshes.set( id, mesh );
-			return mesh.init( nodes );
+		return m.join( info ).then( function(i:I){
+			return { mesh : m, info : i };
 		});
 	}
-	*/
+
+	function createMesh<M:Mesh>( id : String ) : M {
+		return cast new Mesh( this, id );
+	}
 
 	public inline function lobby() : Promise<Array<String>> {
 		return request( 'lobby' );
