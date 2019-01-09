@@ -19,6 +19,7 @@ class Mesh {
 	@:allow(owl.server.Server)
 	var infos = new Map<String,Dynamic>();
 
+	@:allow(owl.server.Server)
 	var nodes = new Map<String,Node>();
 
 	public function new( id : String, ?maxNodes : Int, permanent = false ) {

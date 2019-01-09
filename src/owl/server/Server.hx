@@ -65,39 +65,32 @@ class Server {
 		nodes.set( node.id, node );
 		node.signal( connect, { id : node.id } );
 		node.onSignal = function(sig) {
-			trace("SIGNAL "+sig.type);
+			//trace("SIGNAL "+sig.type);
 			switch sig.type {
 			case join:
 				if( meshes.exists( sig.data.mesh ) ) {
-					//trace("MESH EXISTS");
+					//trace("MESH EXISTS.............");
 					var mesh = meshes.get( sig.data.mesh );
-					//trace(mesh.numNodes,mesh.maxNodes);
 					if( mesh.maxNodes != null && mesh.numNodes >= mesh.maxNodes ) {
 						node.signal( error, { info : 'max nodes' } );
 					} else {
-						var others = [for(n in mesh) { id : n.id, info : mesh.infos.get(n.id) }];
+						var others = mesh.nodes.copy();
 						mesh.addNode( node, sig.data.info );
+						var info = mesh.infos.get( node.id );
 						node.signal( join, {
 							mesh : mesh.id,
-							info : mesh.infos.get( node.id ),
-							nodes : others
-							//nodes : [for(n in mesh) { id : n.id, info : mesh.infos.get(n.id) }]
+							info : info,
+							nodes : [for(n in others) { id : n.id, info : mesh.infos.get( n.id ) }]
 						} );
-						//mesh.addNode( node, sig.data.info );
-						for( n in mesh ) {
-							if( n.id == node.id )
-								continue;
+						for( n in others ) {
 							n.signal( join, {
 								mesh : mesh.id,
-								node : {
-									id : node.id,
-									info : mesh.infos.get( node.id )
-								}
+								node : { id : node.id, info : info }
 							} );
 						}
 					}
 				} else {
-					//trace("NEW MESH "+sig.data.mesh);
+					trace("NEW MESH "+sig.data.mesh);
 					//var mesh = createMesh( signal.data.mesh );
 					var mesh = createMesh( sig.data.mesh );
 					meshes.set( mesh.id, mesh );

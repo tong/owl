@@ -29,7 +29,6 @@ class Server {
 
 	public function new() {}
 
-	//public function connect( protocol = 'owl' ) : Promise<Server> {
 	public function connect( host : String, port : Int, protocol = 'owl' ) : Promise<Server> {
 		return new Promise( function(resolve,reject) {
 			var url = 'ws://$host:$port';
@@ -54,7 +53,8 @@ class Server {
 					if( sig.type == error ) {
 						trace("TODO ON ERROR "+sig);
 					} else {
-						trace("SIGNAL "+sig.type);
+						//trace("SIGNAL "+sig.type);
+						//trace("SIGNAL "+sig);
 						switch sig.type {
 						case connect:
 							this.id = sig.data.id;

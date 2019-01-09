@@ -30,7 +30,7 @@ class Mesh {
 	public var numNodes(default,null) = 0;
 
 	var nodes = new Map<String,Node>();
-	var numNodesJoinRemaining = 0;
+	var numNodesJoinRemaining : Int;
 	var joinHandler : Void->Void;
 	var joinInfo : Dynamic;
 
@@ -49,6 +49,7 @@ class Mesh {
 		return new Promise( function(resolve,reject) {
 			state = joining;
 			joinInfo = info;
+			numNodesJoinRemaining = 0;
 			joinHandler = function(){
 				//trace("JOINHANDLER");
 				state = joined;
@@ -83,15 +84,17 @@ class Mesh {
 
 	@:allow(owl.client.Server)
 	function handleSignal( sig : Signal ) {
+		//trace("handleSignal "+sig);
 		switch sig.type {
 		case join:
 			switch state {
 			case joining:
+				joinInfo = sig.data.info;
 				if( sig.data.nodes.length == 0 ) {
 					joinHandler();
 				} else {
-					trace(sig.data);
-					joinInfo = sig.data.info;
+					//trace(sig.data);
+					//joinInfo = sig.data.info;
 					var _nodes : Array<Dynamic> = sig.data.nodes;
 					numNodes = _nodes.length;
 					for( n in _nodes ) {
