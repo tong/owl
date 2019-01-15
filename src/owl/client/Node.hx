@@ -2,6 +2,7 @@ package owl.client;
 
 #if owl_client
 
+import js.Browser.console;
 import js.Promise;
 import js.html.rtc.PeerConnection;
 import js.html.rtc.DataChannel;
@@ -11,7 +12,7 @@ import js.html.rtc.SessionDescription;
 
 class Node {
 
-	public static var DATA_CHANNEL_ID = 'mesh';
+	public static var DATA_CHANNEL_ID = 'owl_mesh';
 
 	@:allow(owl.client.Mesh) dynamic function onCandidate( e : IceCandidate ) {}
 	@:allow(owl.client.Mesh) dynamic function onConnect() {}
@@ -21,30 +22,28 @@ class Node {
 	public dynamic function onChannel( c : DataChannel ) {} //?
 
 	public final id : String;
+
 	public var connected(default,null) = false;
 	public var initiator(default,null) : Bool;
 	public var connection(default,null) : PeerConnection;
 	public var channel(default,null) : DataChannel;
+	//public var creds(default,null) : Dynamic;
 
-	/** Custom node information **/
-	public var info(default,null) : Dynamic;
-
-	//public function new( id : String, ?configuration : js.html.rtc.Configuration, ?info : Dynamic ) {
-	public function new( id : String, ?info : Dynamic ) {
+	public function new( id : String, creds : Dynamic, ?configuration : js.html.rtc.Configuration ) {
 		this.id = id;
-		this.info = info;
-		//connection = new PeerConnection( configuration );
-		connection = new PeerConnection();
-		connection.onicecandidate = e -> {
+		//this.creds = creds;
+		connection = new PeerConnection( configuration );
+		connection.onicecandidate = function(e) {
 			if( e.candidate != null ) onCandidate( e.candidate );
 		}
-		connection.oniceconnectionstatechange = e -> {
+		connection.oniceconnectionstatechange = function(e) {
 			if( connection.iceConnectionState == DISCONNECTED ) {
 				connected = false;
 				onDisconnect();
 			}
 		}
 		connection.ondatachannel = e -> {
+			trace(e);
             (channel == null) ? setDataChannel( e.channel ) : onChannel( e.channel );
         }
 	}
@@ -81,14 +80,7 @@ class Node {
 	@:allow(owl.client.Mesh)
     function connectFrom( sdp : SessionDescription ) : Promise<SessionDescription> {
         initiator = false;
-		//TODO not here ?
-		/*
-        connection.ondatachannel = function(e) {
-            (channel == null) ? setDataChannel( e.channel ) : onChannel( e.channel );
-        }
-		*/
         return new Promise( (resolve,reject) -> {
-            //trace(sdp.type); // TODO null on firefox 64
             connection.setRemoteDescription( sdp ).then( (_) -> {
                 connection.createAnswer().then( (answer) -> {
                     connection.setLocalDescription( answer ).then( e -> {
@@ -107,11 +99,11 @@ class Node {
 
 	@:allow(owl.client.Mesh)
 	inline function addIceCandidate( candidate : IceCandidate ) : Promise<Void> {
-		//return connection.addIceCandidate( new IceCandidate( candidate ) );
 		return connection.addIceCandidate( candidate );
 	}
 
 	@:allow(owl.client.Mesh)
+	@:allow(owl.client.Server)
     function disconnect() {
 		if( connected ) {
             connected = false;
@@ -137,7 +129,6 @@ class Node {
 			trace(e);
 			var wasConnected = connected;
 			connected = false;
-
 			///TODO
         }
         channel.onerror = function(e) {
@@ -148,14 +139,6 @@ class Node {
 
 	function createDataChannelConfig() : DataChannelInit {
 		return null;
-		/*
-        return {
-            ordered: true,
-        //    outOfOrderAllowed: false,
-            //maxRetransmitTime: 400,
-            //maxPacketLifeTime: 1000
-        };
-		*/
     }
 }
 

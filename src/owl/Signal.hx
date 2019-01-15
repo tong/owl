@@ -8,8 +8,9 @@ import om.Json;
 
 	var connect = 0;
 
-	var join = 1;
-	var leave = 2;
+	var enter = 1;
+	var join = 2;
+	var leave = 3;
 
 	var offer = 10;
 	var answer = 11;
@@ -18,16 +19,20 @@ import om.Json;
 	//var ping = "ping";
     //var pong = "pong";
 
+	var custom = 1000;
+
 	inline function new(t) this = t;
 
 	public function toString() return switch new Type(this) {
+		case error: "error";
+		case enter: "enter";
 		case connect: "connect";
 		case join: "join";
 		case leave: "leave";
 		case offer: "offer";
 		case answer: "answer";
 		case candidate: "candidate";
-		case error: "error";
+		case custom: "custom";
 	}
 }
 
